@@ -17,8 +17,23 @@ class SistemaMusical:
             self.usuario_actual.biblioteca = GestorCSV.cargar_biblioteca()
 
     def _guardar_biblioteca(self):
-        if self.usuario_actual:
-            GestorCSV.guardar_biblioteca(self.usuario_actual.biblioteca)    
+        if not self.usuario_actual:
+            return
+
+        from musipy.sist.gestor_csv import GestorCSV
+        biblioteca = self.usuario_actual.biblioteca
+        # Guarda la biblioteca personal
+        GestorCSV.guardar_biblioteca(biblioteca, "biblioteca.csv")
+
+        # Añade al dataset global sin duplicar títulos+artista
+        nuevas = GestorCSV.filtrar_nuevas(
+            biblioteca,
+            "musipy/data/canciones_predeterminadas.csv"
+        )
+        if nuevas:
+            GestorCSV.agregar_al_dataset(
+                nuevas, "musipy/data/canciones_predeterminadas.csv"
+            )   
 
     def registrar_generos_predeterminados(self):
         self.generos_disponibles = [
@@ -47,6 +62,7 @@ class SistemaMusical:
         print("\n🎧 BIENVENIDO AL SISTEMA MUSICAL INTERACTIVO 🎧")
         nombre = input("Por favor, ingresa tu nombre: ")
         self.usuario_actual = Usuario(nombre)
+        self.cargar_canciones_predeterminadas()
         self._cargar_biblioteca() 
         print(f"\n¡Hola, {nombre}! ¿Qué te gustaría hacer hoy?")
 
@@ -303,3 +319,9 @@ class SistemaMusical:
                 print(f"{i}. {item}")
         else:
             print("\nNo se encontraron resultados para tu búsqueda.")
+            
+    def cargar_canciones_predeterminadas(self, ruta="musipy/data/canciones_predeterminadas.csv"):
+        from musipy.sist.gestor_csv import GestorCSV
+        predeterminadas = GestorCSV.cargar_biblioteca(ruta)
+        if self.usuario_actual:
+            self.usuario_actual.biblioteca.extend(predeterminadas)

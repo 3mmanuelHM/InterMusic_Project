@@ -46,7 +46,7 @@ class Cancion(Multimedia):
             "artista": self.artista.__str__(),
             "letra": self.letra,
             "album": self.album,
-            "genero": self.genero.nombre
+            "genero": self.genero.nombre,
         }
 
     @staticmethod

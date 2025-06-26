@@ -1,75 +1,33 @@
 import pandas as pd
 from pathlib import Path
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
-from sklearn.cluster import KMeans
-import joblib
 
 class AnalizarBiblioteca:
-    """
-    Analiza la biblioteca de canciones del usuario mediante K-Means.
-    """
-
     @staticmethod
-    def analizar_biblioteca_usuario(
-        csv_path: str | Path = "biblioteca.csv",
-        n_clusters: int = 3,
-        save_model: bool = False,
-        modelo_dir: str | Path = "musipy/analisis/modelos_basicos"
-    ) -> pd.DataFrame:
-        """
-        Aplica K-Means sobre las canciones de 'csv_path'.
-        Devuelve un DataFrame con la columna 'cluster'.
+    def promedio_duracion_por_genero(csv_path='biblioteca.csv'):
+        path = Path(csv_path)
+        if not path.exists():
+            print(f"❌ No se encontró el archivo: {csv_path}")
+            return
 
-        Parámetros
-        ----------
-        csv_path : str | Path
-            Ruta al CSV con la biblioteca (por defecto 'biblioteca.csv').
-        n_clusters : int
-            Número de clústeres (default 3).
-        save_model : bool
-            Si True, guarda scaler + kmeans en 'modelo_dir'.
-        modelo_dir : str | Path
-            Carpeta donde se guardarán los modelos (si save_model=True).
-        """
-        csv_path = Path(csv_path)
-        if not csv_path.exists():
-            raise FileNotFoundError(f"No se encontró {csv_path}")
+        df = pd.read_csv(path)
 
-        df = pd.read_csv(csv_path)
+        # Verificar que existan las columnas necesarias
+        columnas_necesarias = {'tipo', 'genero', 'duracion'}
+        if not columnas_necesarias.issubset(df.columns):
+            print("❌ El archivo no contiene las columnas necesarias para el análisis.")
+            return
 
-        # Verificación mínima de columnas requeridas
-        required_cols = {"tipo", "titulo", "duracion", "genero", "reproducciones"}
-        missing = required_cols - set(df.columns)
-        if missing:
-            raise ValueError(f"Faltan columnas necesarias: {missing}")
+        # Filtrar solo canciones con género y duración válidos
+        canciones = df[df['tipo'].str.lower() == 'cancion'].copy()
+        canciones = canciones.dropna(subset=['genero', 'duracion'])
 
-        # Filtrar canciones
-        canciones = df[df["tipo"].str.lower() == "cancion"].copy()
-        if len(canciones) < n_clusters:
-            raise ValueError(f"No hay suficientes canciones ({len(canciones)}) para {n_clusters} clústeres.")
+        if canciones.empty:
+            print("⚠️ No hay canciones válidas para analizar.")
+            return
 
-        # Codificar género (rápido).
-        le = OneHotEncoder()
-        canciones["genero_cod"] = le.fit_transform(canciones["genero"].fillna("desconocido"))
+        # Agrupar por género y calcular promedio
+        resultado = canciones.groupby("genero")["duracion"].mean().round(2)
 
-        # Seleccionar features
-        X = canciones[["duracion", "reproducciones", "genero_cod"]]
-
-        # Escalado
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X)
-
-        # K-Means
-        kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init="auto")
-        canciones["cluster"] = kmeans.fit_predict(X_scaled)
-
-        # Guardar modelos opcionalmente
-        if save_model:
-            modelo_dir = Path(modelo_dir)
-            modelo_dir.mkdir(parents=True, exist_ok=True)
-            joblib.dump(scaler,  modelo_dir / "scaler_biblioteca.joblib")
-            joblib.dump(kmeans,  modelo_dir / "kmeans_biblioteca.joblib")
-            joblib.dump(le,      modelo_dir / "labelencoder_genero.joblib")
-
-        print("✅ Análisis completado.")
-        return canciones
+        print("\n=== Promedio de duración por género ===")
+        for genero, duracion in resultado.items():
+            print(f"{genero}: {duracion} minutos")

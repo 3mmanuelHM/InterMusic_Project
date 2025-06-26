@@ -5,6 +5,7 @@ from musipy.clases.playlist import Playlist
 from musipy.clases.usuario import Usuario
 from musipy.sist.gestor_csv import GestorCSV
 from musipy.analisis.analizar_biblioteca import AnalizarBiblioteca
+from musipy.analisis.analisis_kmeans import AnalizarKmeans
 
 
 class SistemaMusical:
@@ -76,21 +77,18 @@ class SistemaMusical:
             print("\n--- MENÚ PRINCIPAL ---")
             print("1. Gestionar mi biblioteca musical")
             print("2. Gestionar mis playlists")
-            print("3. Buscar música")
-            print("4. Importar canciones")
-            print("5. Salir del sistema")
+            print("3. Importar canciones")
+            print("4. Salir del sistema")
 
-            opcion = input("Selecciona una opción (1-5): ")
+            opcion = input("Selecciona una opción (1-4): ")
 
             if opcion == "1":
                 self.menu_biblioteca()
             elif opcion == "2":
                 self.menu_playlists()
             elif opcion == "3":
-                self.buscar_musica()
-            elif opcion == "4":
                 self.importar_canciones_csv()
-            elif opcion == "5":
+            elif opcion == "4":
                 print("\n¡Gracias por usar el sistema musical! Hasta pronto.")
                 self._guardar_biblioteca()
                 break
@@ -384,10 +382,15 @@ class SistemaMusical:
                 self.usuario_actual.agregar_a_biblioteca.append(item)
                 ya_tengo(clave)
 
-    def opcion_analisis_biblioteca():
-        print("\n=== ANÁLISIS DE BIBLIOTECA (K-MEANS) ===")
-        resultado = AnalizarBiblioteca.analizar_biblioteca_usuario("biblioteca.csv")
+    def opcion_analisis_biblioteca(self):
+        print("\n=== ANÁLISIS DE BIBLIOTECA ===")
+        AnalizarBiblioteca.promedio_duracion_por_genero("biblioteca.csv")
+        
+        resultado = AnalizarKmeans.aplicar_kmeans("biblioteca.csv")
+        
         if resultado is not None:
-            print(resultado[["titulo", "genero", "duracion", "cluster"]])
+            print(resultado)
+        
         else:
-            print("No se pudo realizar el análisis.")
+            print("No se pudo realizar el análisis")
+        

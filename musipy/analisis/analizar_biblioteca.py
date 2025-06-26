@@ -1,48 +1,75 @@
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+from pathlib import Path
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.cluster import KMeans
- 
- class Analizador:
-    
-    def analizar_biblioteca_usuario(csv.path='biblioteca.csv', n_clusters=3):
+import joblib
+
+class AnalizarBiblioteca:
+    """
+    Analiza la biblioteca de canciones del usuario mediante K-Means.
+    """
+
+    @staticmethod
+    def analizar_biblioteca_usuario(
+        csv_path: str | Path = "biblioteca.csv",
+        n_clusters: int = 3,
+        save_model: bool = False,
+        modelo_dir: str | Path = "musipy/analisis/modelos_basicos"
+    ) -> pd.DataFrame:
         """
-        Aplica K-Means a las canciones de la biblioteca del usuario.
+        Aplica K-Means sobre las canciones de 'csv_path'.
+        Devuelve un DataFrame con la columna 'cluster'.
 
-        Parámetros:
-        - csv_path: ruta al archivo CSV (por defecto: 'biblioteca.csv')
-        - n_clusters: número de clústeres (por defecto: 3)
-
-        Retorna:
-        - DataFrame con canciones y su clúster asignado
+        Parámetros
+        ----------
+        csv_path : str | Path
+            Ruta al CSV con la biblioteca (por defecto 'biblioteca.csv').
+        n_clusters : int
+            Número de clústeres (default 3).
+        save_model : bool
+            Si True, guarda scaler + kmeans en 'modelo_dir'.
+        modelo_dir : str | Path
+            Carpeta donde se guardarán los modelos (si save_model=True).
         """
-    
-        try:
-            df = pd.read_csv(csv_path)
+        csv_path = Path(csv_path)
+        if not csv_path.exists():
+            raise FileNotFoundError(f"No se encontró {csv_path}")
 
-            # Filtrar solo canciones válidas
-            canciones = df[df["tipo"] == "cancion"].copy()
-            canciones = canciones[["titulo", "duracion", "genero"]].dropna()
+        df = pd.read_csv(csv_path)
 
-            if len(canciones) < n_clusters:
-                print(f"[!] No hay suficientes canciones para agrupar en {n_clusters} clústeres.")
-                return None
+        # Verificación mínima de columnas requeridas
+        required_cols = {"tipo", "titulo", "duracion", "genero", "reproducciones"}
+        missing = required_cols - set(df.columns)
+        if missing:
+            raise ValueError(f"Faltan columnas necesarias: {missing}")
 
-            # Codificar el género
-            le = LabelEncoder()
-            canciones["genero_cod"] = le.fit_transform(canciones["genero"])
+        # Filtrar canciones
+        canciones = df[df["tipo"].str.lower() == "cancion"].copy()
+        if len(canciones) < n_clusters:
+            raise ValueError(f"No hay suficientes canciones ({len(canciones)}) para {n_clusters} clústeres.")
 
-            # Escalar características
-            X = canciones[["duracion", "genero_cod"]]
-            scaler = StandardScaler()
-            X_scaled = scaler.fit_transform(X)
+        # Codificar género (rápido).
+        le = OneHotEncoder()
+        canciones["genero_cod"] = le.fit_transform(canciones["genero"].fillna("desconocido"))
 
-            # Aplicar K-Means
-            kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-            canciones["cluster"] = kmeans.fit_predict(X_scaled)
+        # Seleccionar features
+        X = canciones[["duracion", "reproducciones", "genero_cod"]]
 
-            print("[✓] Análisis completado.")
-            return canciones
+        # Escalado
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
 
-        except Exception as e:
-            print(f"[Error] No se pudo realizar el análisis: {e}")
-            return None
+        # K-Means
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init="auto")
+        canciones["cluster"] = kmeans.fit_predict(X_scaled)
+
+        # Guardar modelos opcionalmente
+        if save_model:
+            modelo_dir = Path(modelo_dir)
+            modelo_dir.mkdir(parents=True, exist_ok=True)
+            joblib.dump(scaler,  modelo_dir / "scaler_biblioteca.joblib")
+            joblib.dump(kmeans,  modelo_dir / "kmeans_biblioteca.joblib")
+            joblib.dump(le,      modelo_dir / "labelencoder_genero.joblib")
+
+        print("✅ Análisis completado.")
+        return canciones

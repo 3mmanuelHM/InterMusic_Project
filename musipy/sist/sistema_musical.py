@@ -4,7 +4,7 @@ from musipy.clases.multimedia import Cancion, Podcast
 from musipy.clases.playlist import Playlist
 from musipy.clases.usuario import Usuario
 from musipy.sist.gestor_csv import GestorCSV
-from musipy.analisis.analizar_biblioteca import Analizador
+from musipy.analisis.analizar_biblioteca import AnalizarBiblioteca
 
 
 class SistemaMusical:
@@ -114,7 +114,7 @@ class SistemaMusical:
             elif opcion == "2":
                 self.agregar_podcast()
             elif opcion == "3":
-                self.analizar_biblioteca_usuario()
+                self.opcion_analisis_biblioteca()
             elif opcion == "4":
                 break
             else:
@@ -386,7 +386,7 @@ class SistemaMusical:
 
     def opcion_analisis_biblioteca():
         print("\n=== ANÁLISIS DE BIBLIOTECA (K-MEANS) ===")
-        resultado = analizar_biblioteca_usuario("biblioteca.csv")
+        resultado = AnalizarBiblioteca.analizar_biblioteca_usuario("biblioteca.csv")
         if resultado is not None:
             print(resultado[["titulo", "genero", "duracion", "cluster"]])
         else:

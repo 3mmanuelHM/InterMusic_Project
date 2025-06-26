@@ -76,9 +76,10 @@ class SistemaMusical:
             print("1. Gestionar mi biblioteca musical")
             print("2. Gestionar mis playlists")
             print("3. Buscar música")
-            print("4. Salir del sistema")
+            print("4. Importar canciones")
+            print("5. Salir del sistema")
 
-            opcion = input("Selecciona una opción (1-4): ")
+            opcion = input("Selecciona una opción (1-5): ")
 
             if opcion == "1":
                 self.menu_biblioteca()
@@ -87,6 +88,8 @@ class SistemaMusical:
             elif opcion == "3":
                 self.buscar_musica()
             elif opcion == "4":
+                self.importar_canciones_csv()
+            elif opcion == "5":
                 print("\n¡Gracias por usar el sistema musical! Hasta pronto.")
                 self._guardar_biblioteca()
                 break
@@ -120,9 +123,10 @@ class SistemaMusical:
             print("\nOpciones:")
             print("1. Crear nueva playlist")
             print("2. Gestionar playlist existente")
-            print("3. Volver al menú principal")
+            print("3. Importar playlist")
+            print("4. Volver al menú principal")
 
-            opcion = input("Selecciona una opción (1-3): ")
+            opcion = input("Selecciona una opción (1-4): ")
 
             if opcion == "1":
                 nombre = input("Ingresa el nombre de la nueva playlist: ")
@@ -146,6 +150,8 @@ class SistemaMusical:
                 except ValueError:
                     print("Por favor ingresa un número válido.")
             elif opcion == "3":
+                self.importar_playlist_csv()
+            elif opcion == "4":
                 break
             else:
                 print("Opción no válida. Intenta de nuevo.")
@@ -158,9 +164,10 @@ class SistemaMusical:
             print("1. Agregar elemento de mi biblioteca")
             print("2. Eliminar elemento")
             print("3. Reproducir playlist")
-            print("4. Volver al menú de playlists")
+            print("4. Exportar playlist")
+            print("5. Volver al menú de playlists")
 
-            opcion = input("Selecciona una opción (1-4): ")
+            opcion = input("Selecciona una opción (1-5): ")
 
             if opcion == "1":
                 self.agregar_elemento_a_playlist(playlist)
@@ -169,6 +176,10 @@ class SistemaMusical:
             elif opcion == "3":
                 playlist.reproducir_playlist()
             elif opcion == "4":
+                from musipy.sist.gestor_csv import GestorCSV
+                ruta = GestorCSV.exportar_playlist(playlist)
+                print (f"PlayList exportada a: {ruta}")
+            elif opcion == "5":
                 break
             else:
                 print("Opción no válida. Intenta de nuevo.")
@@ -325,3 +336,46 @@ class SistemaMusical:
         predeterminadas = GestorCSV.cargar_biblioteca(ruta)
         if self.usuario_actual:
             self.usuario_actual.biblioteca.extend(predeterminadas)
+            
+    def importar_canciones_csv(self):
+        from musipy.sist.gestor_csv import GestorCSV
+        ruta = input("Ruta al CSV de canciones: ").strip()
+        try:
+            nuevas = GestorCSV.importar_canciones(ruta)
+            # Evitar duplicados por título+artista
+            ya_tengo = {
+                (c.titulo.lower(), str(c.artista).lower())
+                for c in self.usuario_actual.biblioteca
+            }
+            agregadas = 0
+            for item in nuevas:
+                clave = (item.titulo.lower(), str(item.artista).lower())
+                if clave not in ya_tengo:
+                    self.usuario_actual.biblioteca.append(item)
+                    ya_tengo.add(clave)
+                    agregadas += 1
+            print(f"✅ Se importaron {agregadas} canciones nuevas.")
+        except Exception as e:
+            print(f"❌ Error al importar: {e}")
+            
+    def importar_playlist_csv(self):
+        from musipy.sist.gestor_csv import GestorCSV
+        ruta = input("Ruta al CSV de la playlist: ").strip()
+        try:
+            playlist = GestorCSV.importar_playlist_csv(ruta, self.usuario_actual.nombre)
+            self.usuario_actual.playlists.append(playlist)
+            self.importar_canciones_desde_lista(playlist.elementos)
+            print(f"Playlist '{playlist.nombre}' importada con {len(playlist.elementos)} elementos.")
+        except Exception as e:
+            print(f"Error al importar playlist: {e}")
+    
+    def importar_canciones_desde_lista(self, elementos):
+        ya_tengo={
+            (c.titulo.lower(), str(c.artista).lower)
+            for c in self.usuario_actual.biblioteca
+        }
+        for item in elementos:
+            clave = (item.titulo.lower(), str(item.artista).lower())
+            if clave not in ya_tengo:
+                self.usuario_actual.agregar_a_biblioteca.append(item)
+                ya_tengo(clave)

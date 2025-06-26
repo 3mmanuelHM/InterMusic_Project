@@ -4,6 +4,7 @@ from musipy.clases.multimedia import Cancion, Podcast
 from musipy.clases.playlist import Playlist
 from musipy.clases.usuario import Usuario
 from musipy.sist.gestor_csv import GestorCSV
+from musipy.analisis.analizar_biblioteca import Analizador
 
 
 class SistemaMusical:
@@ -103,7 +104,8 @@ class SistemaMusical:
             print("\nOpciones:")
             print("1. Agregar nueva canción")
             print("2. Agregar nuevo podcast")
-            print("3. Volver al menú principal")
+            print("3. Analizar biblioteca")
+            print("4. Volver al menú principal")
 
             opcion = input("Selecciona una opción (1-3): ")
 
@@ -112,6 +114,8 @@ class SistemaMusical:
             elif opcion == "2":
                 self.agregar_podcast()
             elif opcion == "3":
+                self.analizar_biblioteca_usuario()
+            elif opcion == "4":
                 break
             else:
                 print("Opción no válida. Intenta de nuevo.")
@@ -379,3 +383,11 @@ class SistemaMusical:
             if clave not in ya_tengo:
                 self.usuario_actual.agregar_a_biblioteca.append(item)
                 ya_tengo(clave)
+
+    def opcion_analisis_biblioteca():
+        print("\n=== ANÁLISIS DE BIBLIOTECA (K-MEANS) ===")
+        resultado = analizar_biblioteca_usuario("biblioteca.csv")
+        if resultado is not None:
+            print(resultado[["titulo", "genero", "duracion", "cluster"]])
+        else:
+            print("No se pudo realizar el análisis.")

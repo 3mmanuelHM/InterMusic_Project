@@ -429,7 +429,7 @@ class SistemaMusical:
                 print(item.reproducir())
                 if isinstance(item, Cancion):
                      guardar_canciones_csv([c for c in self.usuario_actual.biblioteca if isinstance(c, Cancion)])
-                elif isinstance(itemS, Podcast):
+                elif isinstance(item, Podcast):
                     guardar_podcasts_csv([p for p in self.usuario_actual.biblioteca if isinstance(p, Podcast)])
                 print(f"Reproducciones: {item.contador_reproducciones}")
             else:

@@ -2,7 +2,6 @@ from datetime import datetime
 from typing import List
 from musipy.clases.multimedia import Multimedia
 
-
 class Playlist:
     def __init__(self, nombre: str, creador: str):
         self.nombre = nombre
@@ -23,7 +22,7 @@ class Playlist:
     def reproducir_playlist(self):
         print(f"\nReproduciendo playlist: {self.nombre}")
         for i, elemento in enumerate(self.elementos, 1):
-            print(f"{i}. {elemento.reproducir()}")
+            print(f"{i}. {elemento.reproducir()} (Reproducciones: {elemento.contador_reproducciones})")
 
     def mostrar_elementos(self):
         if not self.elementos:
@@ -35,4 +34,4 @@ class Playlist:
             print(f"{i}. {elemento}")
 
     def __str__(self):
-        return f"📋 {self.nombre} (Creada por: {self.creador}, {len(self.elementos)} elementos)"
+        return f"{self.nombre} (Creada por: {self.creador}, {len(self.elementos)} elementos)"

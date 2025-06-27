@@ -1,33 +1,43 @@
 import pandas as pd
-from pathlib import Path
+import matplotlib.pyplot as plt
+import os
 
-class AnalizarBiblioteca:
-    @staticmethod
-    def promedio_duracion_por_genero(csv_path='biblioteca.csv'):
-        path = Path(csv_path)
-        if not path.exists():
-            print(f"❌ No se encontró el archivo: {csv_path}")
-            return
+def analizar_top_generos():
+    ruta_csv = os.path("biblioteca_canciones.csv")
 
-        df = pd.read_csv(path)
+    if not os.path.exists(ruta_csv):
+        print(f"No se encontró el archivo: {ruta_csv}")
+        return
 
-        # Verificar que existan las columnas necesarias
-        columnas_necesarias = {'tipo', 'genero', 'duracion'}
-        if not columnas_necesarias.issubset(df.columns):
-            print("❌ El archivo no contiene las columnas necesarias para el análisis.")
-            return
+    df = pd.read_csv(ruta_csv)
 
-        # Filtrar solo canciones con género y duración válidos
-        canciones = df[df['tipo'].str.lower() == 'cancion'].copy()
-        canciones = canciones.dropna(subset=['genero', 'duracion'])
+    if 'genero' not in df.columns or 'reproducciones' not in df.columns:
+        print("El CSV no contiene las columnas necesarias ('genero', 'reproducciones')")
+        return
 
-        if canciones.empty:
-            print("⚠️ No hay canciones válidas para analizar.")
-            return
+    if df.empty:
+        print("El archivo está vacío.")
+        return
 
-        # Agrupar por género y calcular promedio
-        resultado = canciones.groupby("genero")["duracion"].mean().round(2)
+    df['reproducciones'] = pd.to_numeric(df['reproducciones'], errors='coerce').fillna(0).astype(int)
+    top_generos = df.groupby("genero")["reproducciones"].sum().sort_values(ascending=False)
 
-        print("\n=== Promedio de duración por género ===")
-        for genero, duracion in resultado.items():
-            print(f"{genero}: {duracion} minutos")
+    if top_generos.empty:
+        print("No hay datos suficientes para graficar.")
+        return
+
+    # Imprimir en consola los datos
+    print("\n🎧 Top de Géneros por Reproducciones:")
+    print(top_generos.to_string())
+
+    # Mostrar gráfico
+    plt.figure(figsize=(10, 5))
+    top_generos.plot(kind="bar", color="skyblue")
+    plt.title("🎶 Top Géneros por Reproducciones")
+    plt.xlabel("Género")
+    plt.ylabel("Total de Reproducciones")
+    plt.xticks(rotation=45)
+    plt.grid(axis="y")
+    plt.tight_layout()
+    plt.show()
+

@@ -1,41 +1,29 @@
+import csv
 from musipy.clases.artista import Banda, Solista
 from musipy.clases.genero import Genero
 from musipy.clases.multimedia import Cancion, Podcast
 from musipy.clases.playlist import Playlist
 from musipy.clases.usuario import Usuario
-from musipy.sist.gestor_csv import GestorCSV
-from musipy.analisis.analizar_biblioteca import AnalizarBiblioteca
-from musipy.analisis.analisis_kmeans import AnalizarKmeans
+from musipy.sist.gestor_csv import (
+    guardar_canciones_csv,
+    cargar_canciones_csv,
+    guardar_podcasts_csv,
+    cargar_podcasts_csv
+)
+from musipy.sist.playlist_csv import (
+    guardar_playlist_csv,
+    exportar_todas_las_playlists,
+    cargar_playlist_csv
+)
+import os
 
+from musipy.analisis.analizar_biblioteca import analizar_top_generos
 
 class SistemaMusical:
     def __init__(self):
         self.usuario_actual = None
         self.generos_disponibles = []
         self.artistas_registrados = []
-        
-    def _cargar_biblioteca(self):
-        if self.usuario_actual:
-            self.usuario_actual.biblioteca = GestorCSV.cargar_biblioteca()
-
-    def _guardar_biblioteca(self):
-        if not self.usuario_actual:
-            return
-
-        from musipy.sist.gestor_csv import GestorCSV
-        biblioteca = self.usuario_actual.biblioteca
-        # Guarda la biblioteca personal
-        GestorCSV.guardar_biblioteca(biblioteca, "biblioteca.csv")
-
-        # Añade al dataset global sin duplicar títulos+artista
-        nuevas = GestorCSV.filtrar_nuevas(
-            biblioteca,
-            "musipy/data/canciones_predeterminadas.csv"
-        )
-        if nuevas:
-            GestorCSV.agregar_al_dataset(
-                nuevas, "musipy/data/canciones_predeterminadas.csv"
-            )   
 
     def registrar_generos_predeterminados(self):
         self.generos_disponibles = [
@@ -61,23 +49,26 @@ class SistemaMusical:
         self.registrar_generos_predeterminados()
         self.registrar_artistas_predeterminados()
 
-        print("\n🎧 BIENVENIDO AL SISTEMA MUSICAL INTERACTIVO 🎧")
+        print("\n BIENVENIDO AL SISTEMA MUSICAL INTERACTIVO ")
         nombre = input("Por favor, ingresa tu nombre: ")
         self.usuario_actual = Usuario(nombre)
-        self.cargar_canciones_predeterminadas()
-        self._cargar_biblioteca() 
         print(f"\n¡Hola, {nombre}! ¿Qué te gustaría hacer hoy?")
+        canciones_cargadas = cargar_canciones_csv(self.generos_disponibles, self.artistas_registrados)
+        for c in canciones_cargadas:
+            self.usuario_actual.agregar_a_biblioteca(c)
+            
+        podcasts_cargados = cargar_podcasts_csv(self.artistas_registrados)
+        for p in podcasts_cargados:
+            self.usuario_actual.agregar_a_biblioteca(p)
 
         self.menu_principal()
-        
-        self._guardar_biblioteca()
 
     def menu_principal(self):
         while True:
             print("\n--- MENÚ PRINCIPAL ---")
             print("1. Gestionar mi biblioteca musical")
             print("2. Gestionar mis playlists")
-            print("3. Importar canciones")
+            print("3. Buscar música")
             print("4. Salir del sistema")
 
             opcion = input("Selecciona una opción (1-4): ")
@@ -87,10 +78,9 @@ class SistemaMusical:
             elif opcion == "2":
                 self.menu_playlists()
             elif opcion == "3":
-                self.importar_canciones_csv()
+                self.buscar_musica()
             elif opcion == "4":
                 print("\n¡Gracias por usar el sistema musical! Hasta pronto.")
-                self._guardar_biblioteca()
                 break
             else:
                 print("Opción no válida. Por favor, intenta de nuevo.")
@@ -102,21 +92,89 @@ class SistemaMusical:
             print("\nOpciones:")
             print("1. Agregar nueva canción")
             print("2. Agregar nuevo podcast")
-            print("3. Analizar biblioteca")
-            print("4. Volver al menú principal")
+            print("3. Reproducir elemento")
+            print("4. Importar canciones desde CSV externo")
+            print("5. Analizar Biblioteca")
+            print("6. Volver al menú principal")
 
-            opcion = input("Selecciona una opción (1-3): ")
+            opcion = input("Selecciona una opción (1-6): ")
 
             if opcion == "1":
                 self.agregar_cancion()
             elif opcion == "2":
                 self.agregar_podcast()
             elif opcion == "3":
-                self.opcion_analisis_biblioteca()
+                self.reproducir_elemento_biblioteca()
             elif opcion == "4":
+                archivo = input("Nombre del archivo CSV externo (con .csv): ")
+                self.cargar_canciones_csv_externo(archivo)
+                guardar_canciones_csv([c for c in self.usuario_actual.biblioteca if isinstance(c, Cancion)])
+            elif opcion == "5":
+                analizar_top_generos()
+            elif opcion == "6":
                 break
             else:
                 print("Opción no válida. Intenta de nuevo.")
+    
+    def cargar_canciones_csv_externo(self, ruta: str):
+        with open(ruta, newline='', encoding='utf-8') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                nombre_csv = row['artista'].strip().lower()
+
+                # Intentar buscar por nombre exacto (para Solista: nombre + apellido, para Banda: nombre)
+                artista_encontrado = None
+                for a in self.artistas_registrados:
+                    if isinstance(a, Solista):
+                        nombre_completo = f"{a.nombre} {a.apellido}".strip().lower()
+                    else:
+                        nombre_completo = a.nombre.strip().lower()
+
+                    if nombre_completo == nombre_csv:
+                        artista_encontrado = a
+                        break
+
+                # Si no se encuentra, se registra nuevo artista
+                if not artista_encontrado:
+                    print(f"\nEl artista '{row['artista']}' no está registrado.")
+                    tipo = input("¿Es un solista (S) o una banda (B)? ").upper()
+                    nombre = row['artista']
+                    pais = input("País de origen: ")
+                    fecha_inicio = input("Fecha de inicio (AAAA-MM-DD): ")
+
+                    if tipo == "S":
+                        apellido = input("Apellido: ")
+                        fecha_nacimiento = input("Fecha de nacimiento (AAAA-MM-DD): ")
+                        artista_encontrado = Solista(nombre, pais, fecha_inicio, apellido, fecha_nacimiento)
+                    elif tipo == "B":
+                        miembros = input("Miembros de la banda (separados por coma): ").split(",")
+                        artista_encontrado = Banda(nombre, pais, fecha_inicio, [m.strip() for m in miembros])
+                    else:
+                        print("Tipo inválido. Se omite la canción.")
+                        continue
+
+                    self.artistas_registrados.append(artista_encontrado)
+
+                genero_encontrado = next((g for g in self.generos_disponibles if g.nombre.lower() == row['genero'].strip().lower()), None)
+                if not genero_encontrado:
+                    print(f"\nEl género '{row['genero']}' no está registrado.")
+                    descripcion = input("Descripción del género: ")
+                    genero_encontrado = Genero(row['genero'], descripcion)
+                    self.generos_disponibles.append(genero_encontrado)
+
+                cancion = Cancion(
+                    titulo=row['titulo'],
+                    duracion=float(row['duracion']),
+                    artista=artista_encontrado,
+                    letra=row['letra'],
+                    album=row['album'],
+                    genero=genero_encontrado
+                )
+                cancion.contador_reproducciones = int(row['reproducciones'])
+                self.usuario_actual.agregar_a_biblioteca(cancion)
+
+        print("\nImportación de canciones completada con éxito.")
+
 
     def menu_playlists(self):
         while True:
@@ -125,10 +183,11 @@ class SistemaMusical:
             print("\nOpciones:")
             print("1. Crear nueva playlist")
             print("2. Gestionar playlist existente")
-            print("3. Importar playlist")
-            print("4. Volver al menú principal")
+            print("3. Exportar todas las playlists")
+            print("4. Importar playlist desde CSV")
+            print("5. Volver al menú principal")
 
-            opcion = input("Selecciona una opción (1-4): ")
+            opcion = input("Selecciona una opción (1-5): ")
 
             if opcion == "1":
                 nombre = input("Ingresa el nombre de la nueva playlist: ")
@@ -152,8 +211,14 @@ class SistemaMusical:
                 except ValueError:
                     print("Por favor ingresa un número válido.")
             elif opcion == "3":
-                self.importar_playlist_csv()
+                exportar_todas_las_playlists(self.usuario_actual.playlists)
+                print("Playlists exportadas exitosamente en la carpeta 'playlist_exportadas'.")
             elif opcion == "4":
+                archivo = input("Nombre del archivo CSV (con .csv): ")
+                playlist = cargar_playlist_csv(archivo, self.usuario_actual.biblioteca)
+                self.usuario_actual.playlists.append(playlist)
+                print(f"Playlist '{playlist.nombre}' importada exitosamente.")
+            elif opcion == "5":
                 break
             else:
                 print("Opción no válida. Intenta de nuevo.")
@@ -166,10 +231,9 @@ class SistemaMusical:
             print("1. Agregar elemento de mi biblioteca")
             print("2. Eliminar elemento")
             print("3. Reproducir playlist")
-            print("4. Exportar playlist")
-            print("5. Volver al menú de playlists")
+            print("4. Volver al menú de playlists")
 
-            opcion = input("Selecciona una opción (1-5): ")
+            opcion = input("Selecciona una opción (1-4): ")
 
             if opcion == "1":
                 self.agregar_elemento_a_playlist(playlist)
@@ -177,11 +241,8 @@ class SistemaMusical:
                 self.eliminar_elemento_de_playlist(playlist)
             elif opcion == "3":
                 playlist.reproducir_playlist()
+                guardar_canciones_csv([c for c in self.usuario_actual.biblioteca if isinstance(c, Cancion)])
             elif opcion == "4":
-                from musipy.sist.gestor_csv import GestorCSV
-                ruta = GestorCSV.exportar_playlist(playlist)
-                print (f"PlayList exportada a: {ruta}")
-            elif opcion == "5":
                 break
             else:
                 print("Opción no válida. Intenta de nuevo.")
@@ -221,7 +282,14 @@ class SistemaMusical:
     def agregar_cancion(self):
         print("\n--- AGREGAR NUEVA CANCIÓN ---")
         titulo = input("Título de la canción: ")
-        duracion = float(input("Duración en minutos (ej. 3.5): "))
+        try:
+            duracion = float(input("Duración en minutos (ej. 3.5): "))
+            if duracion <= 0:
+                print("La duración debe ser positiva.")
+                return
+        except ValueError:
+            print("Duración inválida.")
+            return
 
         print("\nArtistas disponibles:")
         for i, artista in enumerate(self.artistas_registrados, 1):
@@ -234,6 +302,8 @@ class SistemaMusical:
                 artista = self.artistas_registrados[seleccion-1]
             elif seleccion == len(self.artistas_registrados)+1:
                 artista = self.registrar_nuevo_artista()
+                if not artista:
+                    return
             else:
                 print("Selección inválida")
                 return
@@ -261,11 +331,19 @@ class SistemaMusical:
 
         cancion = Cancion(titulo, duracion, artista, letra, album, genero)
         print(self.usuario_actual.agregar_a_biblioteca(cancion))
+        guardar_canciones_csv([c for c in self.usuario_actual.biblioteca if isinstance(c, Cancion)])
 
     def agregar_podcast(self):
         print("\n--- AGREGAR NUEVO PODCAST ---")
         titulo = input("Título del podcast: ")
-        duracion = float(input("Duración en minutos (ej. 45.0): "))
+        try:
+            duracion = float(input("Duración en minutos (ej. 45.0): "))
+            if duracion <= 0:
+                print("La duración debe ser positiva.")
+                return
+        except ValueError:
+            print("Duración inválida.")
+            return
 
         print("\nArtistas disponibles:")
         for i, artista in enumerate(self.artistas_registrados, 1):
@@ -278,6 +356,8 @@ class SistemaMusical:
                 artista = self.artistas_registrados[seleccion-1]
             elif seleccion == len(self.artistas_registrados)+1:
                 artista = self.registrar_nuevo_artista()
+                if not artista:
+                    return
             else:
                 print("Selección inválida")
                 return
@@ -290,6 +370,7 @@ class SistemaMusical:
 
         podcast = Podcast(titulo, duracion, artista, descripcion, categoria)
         print(self.usuario_actual.agregar_a_biblioteca(podcast))
+        guardar_podcasts_csv([p for p in self.usuario_actual.biblioteca if isinstance(p, Podcast)])
 
     def registrar_nuevo_artista(self):
         print("\n--- REGISTRAR NUEVO ARTISTA ---")
@@ -332,65 +413,25 @@ class SistemaMusical:
                 print(f"{i}. {item}")
         else:
             print("\nNo se encontraron resultados para tu búsqueda.")
-            
-    def cargar_canciones_predeterminadas(self, ruta="musipy/data/canciones_predeterminadas.csv"):
-        from musipy.sist.gestor_csv import GestorCSV
-        predeterminadas = GestorCSV.cargar_biblioteca(ruta)
-        if self.usuario_actual:
-            self.usuario_actual.biblioteca.extend(predeterminadas)
-            
-    def importar_canciones_csv(self):
-        from musipy.sist.gestor_csv import GestorCSV
-        ruta = input("Ruta al CSV de canciones: ").strip()
-        try:
-            nuevas = GestorCSV.importar_canciones(ruta)
-            # Evitar duplicados por título+artista
-            ya_tengo = {
-                (c.titulo.lower(), str(c.artista).lower())
-                for c in self.usuario_actual.biblioteca
-            }
-            agregadas = 0
-            for item in nuevas:
-                clave = (item.titulo.lower(), str(item.artista).lower())
-                if clave not in ya_tengo:
-                    self.usuario_actual.biblioteca.append(item)
-                    ya_tengo.add(clave)
-                    agregadas += 1
-            print(f"✅ Se importaron {agregadas} canciones nuevas.")
-        except Exception as e:
-            print(f"❌ Error al importar: {e}")
-            
-    def importar_playlist_csv(self):
-        from musipy.sist.gestor_csv import GestorCSV
-        ruta = input("Ruta al CSV de la playlist: ").strip()
-        try:
-            playlist = GestorCSV.importar_playlist_csv(ruta, self.usuario_actual.nombre)
-            self.usuario_actual.playlists.append(playlist)
-            self.importar_canciones_desde_lista(playlist.elementos)
-            print(f"Playlist '{playlist.nombre}' importada con {len(playlist.elementos)} elementos.")
-        except Exception as e:
-            print(f"Error al importar playlist: {e}")
-    
-    def importar_canciones_desde_lista(self, elementos):
-        ya_tengo={
-            (c.titulo.lower(), str(c.artista).lower)
-            for c in self.usuario_actual.biblioteca
-        }
-        for item in elementos:
-            clave = (item.titulo.lower(), str(item.artista).lower())
-            if clave not in ya_tengo:
-                self.usuario_actual.agregar_a_biblioteca.append(item)
-                ya_tengo(clave)
 
-    def opcion_analisis_biblioteca(self):
-        print("\n=== ANÁLISIS DE BIBLIOTECA ===")
-        AnalizarBiblioteca.promedio_duracion_por_genero("biblioteca.csv")
-        
-        resultado = AnalizarKmeans.aplicar_kmeans("biblioteca.csv")
-        
-        if resultado is not None:
-            print(resultado)
-        
-        else:
-            print("No se pudo realizar el análisis")
-        
+    def reproducir_elemento_biblioteca(self):
+        if not self.usuario_actual.biblioteca:
+            print("Tu biblioteca está vacía.")
+            return
+
+        self.usuario_actual.mostrar_biblioteca()
+
+        try:
+            seleccion = int(input("Selecciona el número del elemento a reproducir: ")) - 1
+            if 0 <= seleccion < len(self.usuario_actual.biblioteca):
+                item = self.usuario_actual.biblioteca[seleccion]
+                print(item.reproducir())
+                if isinstance(item, Cancion):
+                     guardar_canciones_csv([c for c in self.usuario_actual.biblioteca if isinstance(c, Cancion)])
+                elif isinstance(itemS, Podcast):
+                    guardar_podcasts_csv([p for p in self.usuario_actual.biblioteca if isinstance(p, Podcast)])
+                print(f"Reproducciones: {item.contador_reproducciones}")
+            else:
+                print("Número inválido.")
+        except ValueError:
+            print("Por favor ingresa un número válido.")

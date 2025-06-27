@@ -14,6 +14,9 @@ class Usuario:
         return nueva_playlist
 
     def agregar_a_biblioteca(self, multimedia: Multimedia):
+        for item in self.biblioteca:
+            if item.titulo == multimedia.titulo and item.artista == multimedia.artista:
+                return f"'{multimedia.titulo}' ya está en tu biblioteca"
         self.biblioteca.append(multimedia)
         return f"'{multimedia.titulo}' agregado a tu biblioteca"
 

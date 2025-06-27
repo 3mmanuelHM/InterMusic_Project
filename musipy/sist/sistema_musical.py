@@ -17,7 +17,7 @@ from musipy.sist.playlist_csv import (
 )
 import os
 
-from musipy.analisis.analizar_biblioteca import analizar_top_generos
+from musipy.analisis.analizar_biblioteca import analizar_top_generos, clustering_con_silueta
 
 class SistemaMusical:
     def __init__(self):
@@ -111,6 +111,7 @@ class SistemaMusical:
                 guardar_canciones_csv([c for c in self.usuario_actual.biblioteca if isinstance(c, Cancion)])
             elif opcion == "5":
                 analizar_top_generos()
+                clustering_con_silueta()
             elif opcion == "6":
                 break
             else:

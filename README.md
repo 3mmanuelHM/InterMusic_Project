@@ -54,6 +54,7 @@ Módulos de análisis con aprendizaje automático:
 3. Al agregar o reproducir contenido, se actualiza el archivo `biblioteca.csv` a través del `gestor_csv`.
 4. Si el usuario selecciona la opción de análisis, se aplica `KMeans` y se grafica el resultado.
 
+Se recomienda usar el archivo .csv que viene por defecto para probar la importación y a tener en cuenta que se necesitan mínimo 3 canciones para la parte de análisis de biblioteca
 ---
 
 ### Persistencia

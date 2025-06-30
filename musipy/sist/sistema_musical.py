@@ -94,7 +94,7 @@ class SistemaMusical:
             print("2. Agregar nuevo podcast")
             print("3. Reproducir elemento")
             print("4. Importar canciones desde CSV externo")
-            print("5. Analizar Biblioteca")
+            print("5. Analizar Biblioteca (Debes tener 3 canciones mínimo)")
             print("6. Volver al menú principal")
 
             opcion = input("Selecciona una opción (1-6): ")
